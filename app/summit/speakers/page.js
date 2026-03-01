@@ -17,6 +17,7 @@ const emptySpeaker = {
     confirmed: false, honorarium: '', session_date: '', session_time_utc: '', session_length_min: '',
     bio_received: false, headshot_received: false, contract_sent: false, contract_signed: false,
     av_requirements: '', travel_notes: '', notes: '',
+    bio: '', headshot_url: '', show_on_website: false,
 };
 
 export default function SpeakersPage() {
@@ -281,6 +282,21 @@ function Speakers() {
                 <div className="form-group" style={{ marginTop: 16 }}>
                     <label className="form-label">Notes</label>
                     <textarea className="form-textarea" value={form.notes || ''} onChange={(e) => updateField('notes', e.target.value)} />
+                </div>
+
+                {/* Public Website Display */}
+                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>Public Website Display</p>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: 'var(--text-secondary)', cursor: 'pointer', marginBottom: 12 }}>
+                    <input type="checkbox" checked={form.show_on_website || false} onChange={(e) => updateField('show_on_website', e.target.checked)} />
+                    Show on public speakers page
+                </label>
+                <div className="form-group">
+                    <label className="form-label">Speaker Bio (public)</label>
+                    <textarea className="form-textarea" value={form.bio || ''} onChange={(e) => updateField('bio', e.target.value)} placeholder="Bio displayed on the website..." rows={3} />
+                </div>
+                <div className="form-group">
+                    <label className="form-label">Headshot URL</label>
+                    <input className="form-input" value={form.headshot_url || ''} onChange={(e) => updateField('headshot_url', e.target.value)} placeholder="https://example.com/photo.jpg" />
                 </div>
             </Modal>
 

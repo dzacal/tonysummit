@@ -50,11 +50,24 @@ function RegistrationSection() {
   const [form, setForm] = useState({ first_name: '', last_name: '', email: '', subscribe_news: false, country_code: 'US', phone: '' });
   const [status, setStatus] = useState('idle'); // idle | submitting | success | error
   const [errorMsg, setErrorMsg] = useState('');
+  // Bot protection: honeypot + time-based
+  const [honeypot, setHoneypot] = useState('');
+  const [formLoadedAt] = useState(() => Date.now());
 
   const selectedCountry = COUNTRIES.find(c => c.code === form.country_code) || COUNTRIES[0];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Bot protection: if honeypot is filled, silently "succeed" (bot thinks it worked)
+    if (honeypot) {
+      setStatus('success');
+      return;
+    }
+    // Bot protection: if form was submitted in under 3 seconds, likely a bot
+    if (Date.now() - formLoadedAt < 3000) {
+      setStatus('success');
+      return;
+    }
     if (!form.first_name || !form.last_name || !form.email) {
       setErrorMsg('Please fill in all required fields.');
       setStatus('error');
@@ -87,7 +100,7 @@ function RegistrationSection() {
       <div className="hp-register-inner">
         <h2 className="hp-register-title">GENERATION REGENERATION</h2>
         <h3 className="hp-register-subtitle-line">ONLINE SUMMIT</h3>
-        <p className="hp-register-date">SAVE THE DATE | SUMMER 2026</p>
+        <p className="hp-register-date">SAVE THE DATE | JULY 10, 11 & 12, 2026</p>
 
         <p className="hp-register-desc">
           <strong>Generation Regeneration</strong> Online Summit is a virtual gathering featuring the world&apos;s leading names in regeneration—from real estate and wellness to social impact and environmental action. Hear unfiltered conversations, learn what&apos;s working now, and meet the next generation shaping a more regenerative tomorrow.
@@ -104,6 +117,11 @@ function RegistrationSection() {
           </div>
         ) : (
           <form className="hp-register-form" onSubmit={handleSubmit}>
+            {/* Honeypot — invisible to humans, bots auto-fill it */}
+            <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', top: '-9999px', opacity: 0, height: 0, overflow: 'hidden', tabIndex: -1 }}>
+              <label htmlFor="website_url">Leave this empty</label>
+              <input type="text" id="website_url" name="website_url" autoComplete="off" tabIndex={-1} value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
+            </div>
             <div className="hp-register-heading">Name</div>
             <div className="hp-register-row">
               <div className="hp-register-field">
@@ -197,9 +215,8 @@ export default function HomePage() {
 
           <div className="hp-nav-right">
             <div className="hp-nav-links">
-              <a href="#about">About</a>
               <a href="#register">Register</a>
-              <a href="/speakers/apply">Speakers</a>
+              <a href="/speakers">Speakers</a>
             </div>
 
             <div className="hp-social-icons">
@@ -218,34 +235,11 @@ export default function HomePage() {
             </div>
 
             <button onClick={handleConnect} className="hp-connect-btn" id="connect-btn">
-              {user ? 'DASHBOARD' : 'CONNECT'}
+              {user ? 'DASHBOARD' : 'SIGN IN'}
             </button>
           </div>
         </div>
       </nav>
-
-      {/* ─── Hero Section ─── */}
-      <section className="hp-hero hp-hero-centered" id="about">
-        <div className="hp-hero-inner hp-hero-inner-centered">
-          <div className="hp-hero-text hp-hero-text-centered">
-            <h1 className="hp-hero-title">
-              GENERATION REGENERATION<br />ONLINE SUMMIT
-            </h1>
-            <p className="hp-hero-body">
-              Generation Regeneration Online Summit is a virtual gathering featuring the world&apos;s leading names in regeneration—from real estate and wellness to social impact and environmental action. Hear unfiltered conversations, learn what&apos;s working now, and meet the next generation shaping a more regenerative tomorrow.
-            </p>
-            <div className="hp-hero-ctas">
-              <a href="#register" className="hp-cta-primary">
-                Register Now
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-              </a>
-              <button onClick={handleConnect} className="hp-cta-secondary">
-                {user ? 'Go to Dashboard' : 'Sign In'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* ─── Registration Section ─── */}
       <RegistrationSection />
