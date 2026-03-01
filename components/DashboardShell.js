@@ -16,7 +16,10 @@ export default function DashboardShell({ children }) {
 
     useEffect(() => {
         async function init() {
-            const { data: { user: authUser } } = await supabase.auth.getUser();
+            // Use getSession() first — reads from local storage (instant)
+            // instead of getUser() which makes a network request (~500-1500ms)
+            const { data: { session } } = await supabase.auth.getSession();
+            const authUser = session?.user || null;
             if (authUser) {
                 setUser(authUser);
                 const { data: prof } = await supabase
