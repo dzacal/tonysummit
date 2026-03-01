@@ -71,6 +71,17 @@ export default function HomePage() {
         </div>
       </nav>
 
+      {/* ─── Hero Section ─── */}
+      <section className="hp-hero">
+        <div className="hp-hero-content">
+          <h1 className="hp-hero-title">GENERATION REGENERATION<br />ONLINE SUMMIT</h1>
+          <p className="hp-hero-date">SAVE THE DATE | July 10, 11 & 12, 2026</p>
+          <p className="hp-hero-desc">
+            Generation Regeneration Online Summit is a virtual gathering featuring the world&apos;s leading names in regeneration—from real estate and wellness to social impact and environmental action. Hear unfiltered conversations, learn what&apos;s working now, and meet the next generation shaping a more regenerative tomorrow.
+          </p>
+        </div>
+      </section>
+
       {/* ─── Registration Section Removed for Internal Use ─── */}
 
       {/* ─── Social Section ─── */}
