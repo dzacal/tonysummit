@@ -39,7 +39,7 @@ function MemberProfile() {
 
     useEffect(() => { fetchProfile(); }, [fetchProfile]);
 
-    if (!auth) return null;
+    if (!auth || !auth.user) return <div className="page-loading"><span className="loading-spinner" /></div>;
 
     const { user, profile, role } = auth;
     const displayName = form.display_name || user.email?.split('@')[0];
@@ -57,15 +57,15 @@ function MemberProfile() {
         const { error } = await supabase
             .from('user_profiles')
             .update(updates)
-            .eq('id', user.id);
+            .eq('id', user?.id);
 
         if (error) {
             setToast({ message: error.message, type: 'error' });
         } else {
             setToast({ message: 'Profile updated successfully', type: 'success' });
             await logAudit({
-                action: 'UPDATE', tableName: 'user_profiles', recordId: user.id,
-                oldData: profile, newData: updates, userId: user.id, userEmail: user.email,
+                action: 'UPDATE', tableName: 'user_profiles', recordId: user?.id,
+                oldData: profile, newData: updates, userId: user?.id, userEmail: user?.email,
             });
         }
         setSaving(false);

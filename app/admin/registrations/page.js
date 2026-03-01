@@ -146,7 +146,7 @@ function RegistrationsContent() {
             setToast({ message: error.message, type: 'error' });
         } else {
             setToast({ message: `${addForm.first_name} ${addForm.last_name} added to the gathering`, type: 'success' });
-            await logAudit({ action: 'INSERT', tableName: 'summit_registrations', oldData: null, newData: addForm, userId: auth.user.id, userEmail: auth.user.email });
+            await logAudit({ action: 'INSERT', tableName: 'summit_registrations', oldData: null, newData: addForm, userId: auth?.user?.id, userEmail: auth?.user?.email });
             setAddModalOpen(false);
             setAddForm({ first_name: '', last_name: '', email: '', country_code: 'US', phone: '', subscribe_news: false });
             fetchRegistrations();
@@ -162,7 +162,7 @@ function RegistrationsContent() {
             setToast({ message: error.message, type: 'error' });
         } else {
             setToast({ message: 'Registration removed', type: 'success' });
-            await logAudit({ action: 'DELETE', tableName: 'summit_registrations', recordId: reg.id, oldData: reg, newData: null, userId: auth.user.id, userEmail: auth.user.email });
+            await logAudit({ action: 'DELETE', tableName: 'summit_registrations', recordId: reg.id, oldData: reg, newData: null, userId: auth?.user?.id, userEmail: auth?.user?.email });
             fetchRegistrations();
         }
     };
