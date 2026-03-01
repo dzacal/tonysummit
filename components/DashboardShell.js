@@ -8,6 +8,7 @@ const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
 
 export default function DashboardShell({ children }) {
+    const router = useRouter();
     const [user, setUser] = useState(null);
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -64,10 +65,8 @@ export default function DashboardShell({ children }) {
     }
 
     if (!user) {
-        if (typeof window !== 'undefined') {
-            const router = window.location;
-            router.href = '/login';
-        }
+        // Use router.replace for client-side redirect (safe for SSR)
+        router.replace('/login');
         return (
             <div className="page-loading">
                 <span className="loading-spinner" /> Redirecting to login...

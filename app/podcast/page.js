@@ -35,11 +35,12 @@ function PodcastBookings() {
 
     useEffect(() => { fetchBookings(); }, [fetchBookings]);
 
-    if (!auth) return <div className="page-loading"><span className="loading-spinner" /> Loading...</div>;
+    if (!auth || !auth.user) return <div className="page-loading"><span className="loading-spinner" /> Loading...</div>;
 
     const openEdit = (b) => { setEditing(b); setForm({ ...b }); setModalOpen(true); };
 
     const handleSave = async () => {
+        if (!editing) return;
         setSaving(true);
         const { error } = await supabase.from('podcast_bookings').update({
             status: form.status, guest_name: form.guest_name, guest_email: form.guest_email,
