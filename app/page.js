@@ -50,11 +50,24 @@ function RegistrationSection() {
   const [form, setForm] = useState({ first_name: '', last_name: '', email: '', subscribe_news: false, country_code: 'US', phone: '' });
   const [status, setStatus] = useState('idle'); // idle | submitting | success | error
   const [errorMsg, setErrorMsg] = useState('');
+  // Bot protection: honeypot + time-based
+  const [honeypot, setHoneypot] = useState('');
+  const [formLoadedAt] = useState(() => Date.now());
 
   const selectedCountry = COUNTRIES.find(c => c.code === form.country_code) || COUNTRIES[0];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Bot protection: if honeypot is filled, silently "succeed" (bot thinks it worked)
+    if (honeypot) {
+      setStatus('success');
+      return;
+    }
+    // Bot protection: if form was submitted in under 3 seconds, likely a bot
+    if (Date.now() - formLoadedAt < 3000) {
+      setStatus('success');
+      return;
+    }
     if (!form.first_name || !form.last_name || !form.email) {
       setErrorMsg('Please fill in all required fields.');
       setStatus('error');
@@ -104,6 +117,11 @@ function RegistrationSection() {
           </div>
         ) : (
           <form className="hp-register-form" onSubmit={handleSubmit}>
+            {/* Honeypot — invisible to humans, bots auto-fill it */}
+            <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', top: '-9999px', opacity: 0, height: 0, overflow: 'hidden', tabIndex: -1 }}>
+              <label htmlFor="website_url">Leave this empty</label>
+              <input type="text" id="website_url" name="website_url" autoComplete="off" tabIndex={-1} value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
+            </div>
             <div className="hp-register-heading">Name</div>
             <div className="hp-register-row">
               <div className="hp-register-field">
