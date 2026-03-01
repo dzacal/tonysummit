@@ -71,12 +71,12 @@ function TeamMembers() {
             <div className="page-header">
                 <h1>Team Members</h1>
                 <p>Manage your team across the Tony Cho Brand.</p>
-                {isAdmin(role) && <div className="page-actions">
+                <div className="page-actions">
                     <button className="btn btn-primary" onClick={openAdd}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M12 4v16m8-8H4" /></svg>
                         Add Member
                     </button>
-                </div>}
+                </div>
             </div>
 
             <div className="table-container">
@@ -119,7 +119,7 @@ function TeamMembers() {
                                         <td>{m.role_to_brand || '—'}</td>
                                         <td>{m.timezone || '—'}</td>
                                         <td>{m.call_availability || '—'}</td>
-                                        {isAdmin(role) && <td>
+                                        <td>
                                             <div className="row-actions">
                                                 <button title="Edit" onClick={() => openEdit(m)}>
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
@@ -128,7 +128,7 @@ function TeamMembers() {
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>
                                                 </button>
                                             </div>
-                                        </td>}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>

@@ -31,8 +31,6 @@ export default function PublicSpeakersPage() {
                     <div className="hp-nav-right">
                         <div className="hp-nav-links">
                             <a href="/speakers">Speakers</a>
-                            <a href="/#register">Register</a>
-                            <a href="/speakers/apply">Apply to Speak</a>
                         </div>
                         <a href="/login" className="hp-connect-btn">SIGN IN</a>
                     </div>
@@ -63,11 +61,7 @@ export default function PublicSpeakersPage() {
                                 <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
                             <h3>Speakers Coming Soon</h3>
-                            <p>We&apos;re finalizing our incredible lineup. Check back soon or register below to be the first to know!</p>
-                            <a href="/#register" className="hp-cta-primary" style={{ marginTop: 16, display: 'inline-flex' }}>
-                                Register for Updates
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-                            </a>
+                            <p>We&apos;re finalizing our incredible lineup. Check back soon for updates!</p>
                         </div>
                     ) : (
                         <div className="speakers-grid">
@@ -99,17 +93,6 @@ export default function PublicSpeakersPage() {
                 </div>
             </section>
 
-            {/* ─── CTA ─── */}
-            <section className="speakers-cta-section">
-                <div className="speakers-cta-inner">
-                    <h2>Want to Speak at the Summit?</h2>
-                    <p>Share your expertise with a global audience passionate about regeneration.</p>
-                    <a href="/speakers/apply" className="hp-cta-primary">
-                        Apply to Speak
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-                    </a>
-                </div>
-            </section>
 
             {/* ─── Footer ─── */}
             <footer className="hp-footer">

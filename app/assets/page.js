@@ -4,15 +4,16 @@ import DashboardShell, { useAuth } from '@/components/DashboardShell';
 import Modal from '@/components/Modal';
 import Toast from '@/components/Toast';
 import { supabase } from '@/lib/supabase';
-import { isAdmin } from '@/lib/rbac';
 import { formatDate } from '@/lib/utils';
 
 const assetTypes = ['Image', 'Video', 'Deck', 'Document', 'Social Copy', 'Other'];
 const statusOptions = ['Draft', 'In Review', 'Approved', 'Published', 'Archived'];
+const assetCategories = ['General', 'PR', 'Podcast', 'Summit', 'Course Creation', 'Substack', 'Other'];
 
 const emptyAsset = {
     asset_name: '', asset_type: '', campaign: '', owner: '', status: 'Draft',
-    file_url: '', category: '', platform: '', notes: '',
+    file_url: '', category: 'General', platform: '', notes: '',
+    is_password_protected: false, asset_password: ''
 };
 
 export default function AssetsPage() {
@@ -33,6 +34,7 @@ function MarketingAssets() {
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState(null);
     const [uploading, setUploading] = useState(false);
+    const [customCategory, setCustomCategory] = useState('');
     const fileRef = useRef(null);
 
     const fetchAssets = useCallback(async () => {
@@ -43,15 +45,31 @@ function MarketingAssets() {
 
     useEffect(() => { fetchAssets(); }, [fetchAssets]);
 
-    const openAdd = () => { setEditing(null); setForm(emptyAsset); setModalOpen(true); };
-    const openEdit = (a) => { setEditing(a); setForm({ ...emptyAsset, ...a }); setModalOpen(true); };
+    const openAdd = () => {
+        setEditing(null);
+        setForm(emptyAsset);
+        setCustomCategory('');
+        setModalOpen(true);
+    };
+
+    const openEdit = (a) => {
+        setEditing(a);
+        setForm({ ...emptyAsset, ...a });
+        if (a.category && !assetCategories.includes(a.category)) {
+            setForm(prev => ({ ...prev, category: 'Other' }));
+            setCustomCategory(a.category);
+        } else {
+            setCustomCategory('');
+        }
+        setModalOpen(true);
+    };
 
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
         setUploading(true);
         const fileName = `${Date.now()}_${file.name}`;
-        const { data, error } = await supabase.storage.from('marketing-assets').upload(fileName, file);
+        const { error } = await supabase.storage.from('marketing-assets').upload(fileName, file);
         if (error) {
             setToast({ message: `Upload failed: ${error.message}`, type: 'error' });
             setUploading(false);
@@ -68,6 +86,14 @@ function MarketingAssets() {
         const payload = { ...form };
         delete payload.id;
         delete payload.created_at;
+
+        if (payload.category === 'Other' && customCategory.trim()) {
+            payload.category = customCategory.trim();
+        }
+
+        if (!payload.is_password_protected) {
+            payload.asset_password = null;
+        }
 
         if (editing) {
             const { error } = await supabase.from('marketing_assets').update(payload).eq('id', editing.id);
@@ -86,6 +112,19 @@ function MarketingAssets() {
         await supabase.from('marketing_assets').delete().eq('id', id);
         setToast({ message: 'Asset deleted', type: 'success' });
         fetchAssets();
+    };
+
+    const handleDownload = (a) => {
+        if (!a.file_url) return;
+        if (a.is_password_protected) {
+            const pwd = prompt('This asset is password protected. Enter password:');
+            if (pwd === null) return;
+            if (pwd !== a.asset_password) {
+                alert('Incorrect password.');
+                return;
+            }
+        }
+        window.open(a.file_url, '_blank', 'noopener,noreferrer');
     };
 
     const badgeClass = (status) => {
@@ -112,12 +151,12 @@ function MarketingAssets() {
             <div className="page-header">
                 <h1>Marketing Assets</h1>
                 <p>Upload, organize, and manage brand assets and campaign files.</p>
-                {isAdmin(role) && <div className="page-actions">
+                <div className="page-actions">
                     <button className="btn btn-primary" onClick={openAdd}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M12 4v16m8-8H4" /></svg>
                         Add Asset
                     </button>
-                </div>}
+                </div>
             </div>
 
             <div className="table-container">
@@ -148,11 +187,12 @@ function MarketingAssets() {
                             <thead>
                                 <tr>
                                     <th>Asset Name</th>
+                                    <th>Category</th>
                                     <th>Type</th>
                                     <th>Campaign</th>
                                     <th>Owner</th>
                                     <th>Status</th>
-                                    <th>Upload Date</th>
+                                    <th>Protection</th>
                                     <th>File</th>
                                     <th></th>
                                 </tr>
@@ -161,20 +201,27 @@ function MarketingAssets() {
                                 {filtered.map((a) => (
                                     <tr key={a.id}>
                                         <td><span className="name-cell">{a.asset_name}</span></td>
+                                        <td>{a.category || '—'}</td>
                                         <td><span className="badge badge-neutral">{a.asset_type || '—'}</span></td>
                                         <td>{a.campaign || '—'}</td>
                                         <td>{a.owner || '—'}</td>
                                         <td><span className={`badge ${badgeClass(a.status)}`}>{a.status}</span></td>
-                                        <td>{formatDate(a.upload_date || a.created_at)}</td>
+                                        <td>
+                                            {a.is_password_protected ? (
+                                                <svg width="16" height="16" style={{ color: 'var(--text-muted)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                                            ) : (
+                                                <svg width="16" height="16" style={{ color: 'var(--border)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>
+                                            )}
+                                        </td>
                                         <td>
                                             {a.file_url ? (
-                                                <a href={a.file_url} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">
+                                                <button onClick={() => handleDownload(a)} className="btn btn-secondary btn-sm" style={{ padding: '4px 8px' }}>
                                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                                                     Download
-                                                </a>
+                                                </button>
                                             ) : '—'}
                                         </td>
-                                        {isAdmin(role) && <td>
+                                        <td>
                                             <div className="row-actions">
                                                 <button title="Edit" onClick={() => openEdit(a)}>
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
@@ -183,7 +230,7 @@ function MarketingAssets() {
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>
                                                 </button>
                                             </div>
-                                        </td>}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -206,16 +253,24 @@ function MarketingAssets() {
                         </select>
                     </div>
                 </div>
+
                 <div className="form-row">
+                    <div className="form-group">
+                        <label className="form-label">Category</label>
+                        <select className="form-select" value={form.category} onChange={(e) => updateField('category', e.target.value)}>
+                            <option value="">Select category...</option>
+                            {assetCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        {form.category === 'Other' && (
+                            <input className="form-input" style={{ marginTop: 8 }} value={customCategory} onChange={(e) => setCustomCategory(e.target.value)} placeholder="Type custom category..." />
+                        )}
+                    </div>
                     <div className="form-group">
                         <label className="form-label">Campaign</label>
                         <input className="form-input" value={form.campaign} onChange={(e) => updateField('campaign', e.target.value)} placeholder="e.g. Q1 Launch" />
                     </div>
-                    <div className="form-group">
-                        <label className="form-label">Owner</label>
-                        <input className="form-input" value={form.owner} onChange={(e) => updateField('owner', e.target.value)} placeholder="Who owns this asset?" />
-                    </div>
                 </div>
+
                 <div className="form-row">
                     <div className="form-group">
                         <label className="form-label">Status</label>
@@ -224,9 +279,22 @@ function MarketingAssets() {
                         </select>
                     </div>
                     <div className="form-group">
-                        <label className="form-label">Category</label>
-                        <input className="form-input" value={form.category} onChange={(e) => updateField('category', e.target.value)} placeholder="e.g. Social, Print" />
+                        <label className="form-label">Owner</label>
+                        <input className="form-input" value={form.owner} onChange={(e) => updateField('owner', e.target.value)} placeholder="Who owns this asset?" />
                     </div>
+                </div>
+
+                {/* Password Protection */}
+                <div className="form-group" style={{ background: 'var(--bg-card)', padding: 12, borderRadius: 8, border: '1px solid var(--border)' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
+                        <input type="checkbox" checked={form.is_password_protected} onChange={(e) => updateField('is_password_protected', e.target.checked)} />
+                        Password Protect Asset
+                    </label>
+                    {form.is_password_protected && (
+                        <div style={{ marginTop: 8 }}>
+                            <input className="form-input" type="text" placeholder="Set a password for download..." value={form.asset_password || ''} onChange={(e) => updateField('asset_password', e.target.value)} required={form.is_password_protected} />
+                        </div>
+                    )}
                 </div>
 
                 {/* File Upload */}
