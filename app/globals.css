@@ -2131,6 +2131,274 @@ td .name-cell {
   text-transform: uppercase;
 }
 
+/* ─── Registration Section ─── */
+.hp-register-section {
+  padding: 100px 40px;
+  background: linear-gradient(165deg, #a8a4d4 0%, #8cb5c9 35%, #9ed8d0 70%, #b8d8be 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.hp-register-section::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -25%;
+  width: 150%;
+  height: 200%;
+  background: radial-gradient(ellipse at 30% 20%, rgba(255, 255, 255, 0.08) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.hp-register-inner {
+  max-width: 780px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.hp-register-title {
+  font-size: clamp(36px, 5vw, 56px);
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+  line-height: 1;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.hp-register-subtitle-line {
+  font-size: clamp(24px, 3.5vw, 36px);
+  font-weight: 700;
+  color: #2F3A3A;
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+
+.hp-register-date {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 28px;
+}
+
+.hp-register-desc {
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: #2F3A3A;
+  max-width: 620px;
+  margin: 0 auto 20px;
+  font-style: italic;
+}
+
+.hp-register-desc strong {
+  font-style: italic;
+  font-weight: 700;
+}
+
+.hp-register-cta-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: #2F3A3A;
+  margin-bottom: 32px;
+}
+
+.hp-register-form {
+  max-width: 620px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.hp-register-heading {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 4px;
+  margin-top: 20px;
+}
+
+.hp-register-heading:first-child {
+  margin-top: 0;
+}
+
+.hp-required {
+  font-weight: 400;
+  font-style: italic;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.hp-register-row {
+  display: flex;
+  gap: 16px;
+}
+
+.hp-register-field {
+  flex: 1;
+}
+
+.hp-register-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 6px;
+}
+
+.hp-register-input {
+  width: 100%;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 6px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: #2F3A3A;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.hp-register-input:focus {
+  background: #fff;
+  border-color: #8E8CBF;
+  box-shadow: 0 0 0 3px rgba(142, 140, 191, 0.2);
+}
+
+.hp-register-input::placeholder {
+  color: #9ca3af;
+}
+
+.hp-register-select {
+  width: 100%;
+  padding: 12px 14px;
+  background: rgba(121, 200, 184, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: #fff;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  transition: all 0.2s ease;
+}
+
+.hp-register-select:focus {
+  border-color: #fff;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
+}
+
+.hp-register-select option {
+  background: #5a8a80;
+  color: #fff;
+}
+
+.hp-register-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  margin-top: 12px;
+  margin-bottom: 8px;
+}
+
+.hp-register-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  accent-color: #6366f1;
+}
+
+.hp-register-checkbox span {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.hp-register-phone-hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 8px;
+  font-style: italic;
+}
+
+.hp-register-btn {
+  display: block;
+  width: 100%;
+  max-width: 340px;
+  margin: 28px auto 0;
+  padding: 16px 32px;
+  background: rgba(121, 200, 184, 0.65);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 100px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.hp-register-btn:hover:not(:disabled) {
+  background: rgba(121, 200, 184, 0.9);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.hp-register-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.hp-register-error {
+  color: #fee2e2;
+  background: rgba(220, 38, 38, 0.25);
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+.hp-register-success {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 16px;
+  padding: 48px 32px;
+  text-align: center;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.hp-register-success svg {
+  color: #fff;
+  margin-bottom: 16px;
+}
+
+.hp-register-success h4 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.hp-register-success p {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.6;
+}
+
 /* ─── Social Section ─── */
 .hp-social-section {
   padding: 100px 40px;
@@ -2349,6 +2617,23 @@ td .name-cell {
 
   .hp-social-card {
     padding: 24px 16px;
+  }
+
+  .hp-register-section {
+    padding: 60px 24px;
+  }
+
+  .hp-register-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .hp-register-title {
+    font-size: clamp(28px, 6vw, 40px);
+  }
+
+  .hp-register-subtitle-line {
+    font-size: clamp(18px, 4vw, 28px);
   }
 
   .hp-footer-inner {

@@ -1,8 +1,12 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'Tony Cho Brand Dashboard',
-  description: 'Unified dashboard for managing Team, Podcast, Summit, and Marketing Assets',
+  title: 'Generation Regeneration | Online Summit',
+  description: 'Generation Regeneration Online Summit — a virtual gathering featuring the world\'s leading names in regeneration.',
+  icons: {
+    icon: '/logo.webp',
+    apple: '/logo.webp',
+  },
 };
 
 export default function RootLayout({ children }) {

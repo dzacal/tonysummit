@@ -17,7 +17,7 @@ function AdminDashboard() {
     const [loading, setLoading] = useState(true);
 
     const fetchData = useCallback(async () => {
-        const [team, departments, bookings, partners, speakers, assets, users, formSubs, audit] = await Promise.all([
+        const [team, departments, bookings, partners, speakers, assets, users, registrations, formSubs, audit] = await Promise.all([
             supabase.from('team_members').select('id', { count: 'exact', head: true }),
             supabase.from('departments').select('id', { count: 'exact', head: true }),
             supabase.from('podcast_bookings').select('id', { count: 'exact', head: true }),
@@ -25,6 +25,7 @@ function AdminDashboard() {
             supabase.from('speakers').select('id', { count: 'exact', head: true }),
             supabase.from('marketing_assets').select('id', { count: 'exact', head: true }),
             supabase.from('user_profiles').select('id', { count: 'exact', head: true }),
+            supabase.from('summit_registrations').select('id', { count: 'exact', head: true }),
             supabase.from('form_submissions').select('*').order('created_at', { ascending: false }).limit(50),
             supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(10),
         ]);
@@ -37,6 +38,7 @@ function AdminDashboard() {
             speakers: speakers.count || 0,
             assets: assets.count || 0,
             users: users.count || 0,
+            registrations: registrations.count || 0,
         });
 
         setSubmissions(formSubs.data || []);
@@ -53,6 +55,7 @@ function AdminDashboard() {
         { label: 'Speakers', value: stats.speakers, icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z', colorClass: 'teal' },
         { label: 'Partners', value: stats.partners, icon: 'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z', colorClass: 'success' },
         { label: 'Podcast Submissions', value: stats.bookings, icon: 'M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z', colorClass: 'info' },
+        { label: 'Registrations', value: stats.registrations, icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4', colorClass: 'success' },
         { label: 'Active Users', value: stats.users, icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', colorClass: 'warning' },
         { label: 'Marketing Assets', value: stats.assets, icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', colorClass: 'danger' },
     ];
@@ -188,6 +191,10 @@ function AdminDashboard() {
                             <Link href="/admin/users" className="quick-action-btn">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M12 4v16m8-8H4" /></svg>
                                 Manage Users
+                            </Link>
+                            <Link href="/admin/registrations" className="quick-action-btn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                                View Registrations
                             </Link>
                         </div>
                     </div>
