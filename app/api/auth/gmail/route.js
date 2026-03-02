@@ -1,3 +1,4 @@
+// Gmail OAuth route
 import { NextResponse } from 'next/server';
 
 export async function GET() {
