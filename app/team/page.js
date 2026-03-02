@@ -43,21 +43,45 @@ function TeamMembers() {
         setSaving(true);
         if (editing) {
             const { error } = await supabase.from('team_members').update(form).eq('id', editing.id);
-            if (error) { setToast({ message: error.message, type: 'error' }); } else { setToast({ message: 'Member updated', type: 'success' }); }
+            if (error) {
+                setToast({ message: error.message, type: 'error' });
+            } else {
+                setToast({ message: 'Member updated', type: 'success' });
+                // Optimistic update
+                setMembers(prev => prev.map(m => m.id === editing.id ? { ...m, ...form } : m));
+            }
         } else {
-            const { error } = await supabase.from('team_members').insert(form);
-            if (error) { setToast({ message: error.message, type: 'error' }); } else { setToast({ message: 'Member added', type: 'success' }); }
+            const { error, data } = await supabase.from('team_members').insert(form).select().single();
+            if (error) {
+                setToast({ message: error.message, type: 'error' });
+            } else {
+                setToast({ message: 'Member added', type: 'success' });
+                if (data) {
+                    // Optimistic update
+                    setMembers(prev => [...prev, data].sort((a, b) => a.full_name.localeCompare(b.full_name)));
+                } else {
+                    fetchMembers(); // Fallback if no data returned
+                }
+            }
         }
         setSaving(false);
         setModalOpen(false);
-        fetchMembers();
+        // fetchMembers(); // Handled optimistically
     };
 
     const handleDelete = async (id) => {
         if (!confirm('Delete this team member?')) return;
-        await supabase.from('team_members').delete().eq('id', id);
-        setToast({ message: 'Member deleted', type: 'success' });
-        fetchMembers();
+
+        // Optimistic update
+        setMembers(prev => prev.filter(m => m.id !== id));
+
+        const { error } = await supabase.from('team_members').delete().eq('id', id);
+        if (error) {
+            setToast({ message: error.message, type: 'error' });
+            fetchMembers(); // Revert on error
+        } else {
+            setToast({ message: 'Member deleted', type: 'success' });
+        }
     };
 
     const filtered = members.filter((m) =>

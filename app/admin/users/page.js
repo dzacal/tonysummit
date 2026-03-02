@@ -67,11 +67,19 @@ function UsersContent() {
             setToast({ message: error.message, type: 'error' });
         } else {
             setToast({ message: 'User updated', type: 'success' });
+
+            // Optimistic update
+            setUsers(prev => prev.map(user =>
+                user.id === editing.id
+                    ? { ...user, display_name: editForm.display_name, role: editForm.role, phone: editForm.phone, company: editForm.company, location: editForm.location, bio: editForm.bio }
+                    : user
+            ));
+
             await logAudit({ action: 'UPDATE', tableName: 'user_profiles', recordId: editing.id, oldData, newData: editForm, userId: auth.user.id, userEmail: auth.user.email });
         }
         setSaving(false);
         setEditModalOpen(false);
-        fetchUsers();
+        // fetchUsers(); // Replaced by optimistic update
     };
 
     // --- Create User ---
@@ -119,8 +127,12 @@ function UsersContent() {
             setToast({ message: error.message, type: 'error' });
         } else {
             setToast({ message: `User deleted successfully`, type: 'success' });
+
+            // Optimistic update
+            setUsers(prev => prev.filter(user => user.id !== u.id));
+
             await logAudit({ action: 'DELETE', tableName: 'user_profiles', recordId: u.id, oldData: u, newData: null, userId: auth.user.id, userEmail: auth.user.email });
-            fetchUsers();
+            // fetchUsers(); // Replaced by optimistic update
         }
         setSaving(false);
     };
@@ -143,9 +155,15 @@ function UsersContent() {
             setToast({ message: error.message, type: 'error' });
         } else {
             setToast({ message: `User ${action}d`, type: 'success' });
+
+            // Optimistic update
+            setUsers(prev => prev.map(user =>
+                user.id === u.id ? { ...user, deactivated: !u.deactivated } : user
+            ));
+
             await logAudit({ action: 'UPDATE', tableName: 'user_profiles', recordId: u.id, oldData: { deactivated: u.deactivated }, newData: { deactivated: !u.deactivated }, userId: auth.user.id, userEmail: auth.user.email });
         }
-        fetchUsers();
+        // fetchUsers(); // Replaced by optimistic update
     };
 
     const activeUsers = users.filter(u => !u.deactivated);
