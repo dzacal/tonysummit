@@ -19,7 +19,7 @@ function UsersContent() {
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [editing, setEditing] = useState(null);
-    const [editForm, setEditForm] = useState({ display_name: '', role: 'member' });
+    const [editForm, setEditForm] = useState({ display_name: '', role: 'member', phone: '', company: '', location: '', bio: '' });
     const [createForm, setCreateForm] = useState({ email: '', password: '', display_name: '', role: 'member' });
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState(null);
@@ -39,16 +39,27 @@ function UsersContent() {
     // --- Edit User ---
     const openEdit = (u) => {
         setEditing(u);
-        setEditForm({ display_name: u.display_name || '', role: u.role || 'member' });
+        setEditForm({
+            display_name: u.display_name || '',
+            role: u.role || 'member',
+            phone: u.phone || '',
+            company: u.company || '',
+            location: u.location || '',
+            bio: u.bio || ''
+        });
         setEditModalOpen(true);
     };
 
     const handleEdit = async () => {
         setSaving(true);
-        const oldData = { display_name: editing.display_name, role: editing.role };
+        const oldData = { display_name: editing.display_name, role: editing.role, phone: editing.phone, company: editing.company, location: editing.location, bio: editing.bio };
         const { error } = await supabase.from('user_profiles').update({
             display_name: editForm.display_name,
             role: editForm.role,
+            phone: editForm.phone,
+            company: editForm.company,
+            location: editForm.location,
+            bio: editForm.bio,
             updated_at: new Date().toISOString(),
         }).eq('id', editing.id);
 
@@ -90,6 +101,26 @@ function UsersContent() {
             }
         } catch (err) {
             setToast({ message: err.message, type: 'error' });
+        }
+        setSaving(false);
+    };
+
+    // --- Delete User ---
+    const handleDelete = async (u) => {
+        if (u.id === auth.user.id) {
+            setToast({ message: "You can't delete your own account", type: 'error' });
+            return;
+        }
+        if (!confirm(`Are you absolutely sure you want to permanently delete ${u.display_name || u.email}? This action cannot be undone.`)) return;
+
+        setSaving(true);
+        const { error } = await supabase.rpc('delete_user', { target_user_id: u.id });
+        if (error) {
+            setToast({ message: error.message, type: 'error' });
+        } else {
+            setToast({ message: `User deleted successfully`, type: 'success' });
+            await logAudit({ action: 'DELETE', tableName: 'user_profiles', recordId: u.id, oldData: u, newData: null, userId: auth.user.id, userEmail: auth.user.email });
+            fetchUsers();
         }
         setSaving(false);
     };
@@ -196,6 +227,9 @@ function UsersContent() {
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
                                                 )}
                                             </button>
+                                            <button className="delete" title="Delete" onClick={() => handleDelete(u)}>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -206,13 +240,31 @@ function UsersContent() {
             </div>
 
             {/* Edit User Modal */}
-            <Modal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} title="Edit User" onSubmit={handleEdit} loading={saving}>
+            <Modal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} title="Edit User Profile" onSubmit={handleEdit} loading={saving}>
                 <div className="form-group">
                     <label className="form-label">Display Name</label>
                     <input className="form-input" value={editForm.display_name} onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })} placeholder="Display name" />
                 </div>
                 <div className="form-group">
-                    <label className="form-label">Role</label>
+                    <label className="form-label">Phone</label>
+                    <input className="form-input" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} placeholder="+1 234 567 8900" />
+                </div>
+                <div className="form-row">
+                    <div className="form-group">
+                        <label className="form-label">Company</label>
+                        <input className="form-input" value={editForm.company} onChange={(e) => setEditForm({ ...editForm, company: e.target.value })} placeholder="Company name" />
+                    </div>
+                    <div className="form-group">
+                        <label className="form-label">Location</label>
+                        <input className="form-input" value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} placeholder="City, Country" />
+                    </div>
+                </div>
+                <div className="form-group">
+                    <label className="form-label">Bio (Optional)</label>
+                    <textarea className="form-textarea" value={editForm.bio} onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })} placeholder="A short bio..." />
+                </div>
+                <div className="form-group">
+                    <label className="form-label">System Role</label>
                     <select className="form-select" value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}>
                         <option value="member">Member</option>
                         <option value="admin">Admin</option>
