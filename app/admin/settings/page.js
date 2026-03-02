@@ -17,6 +17,7 @@ function SettingsContent() {
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState(null);
     const [saving, setSaving] = useState(false);
+    const [gmailConnected, setGmailConnected] = useState(false);
 
     const fetchSettings = useCallback(async () => {
         const { data: appSettings } = await supabase.from('app_settings').select('*');
@@ -26,10 +27,20 @@ function SettingsContent() {
 
         const { data: blocks } = await supabase.from('cms_blocks').select('*').order('sort_order');
         setCmsBlocks(blocks || []);
+
+        const { data: gmailTokens } = await supabase.from('gmail_tokens').select('id').limit(1);
+        setGmailConnected(!!(gmailTokens && gmailTokens.length > 0));
+
         setLoading(false);
     }, []);
 
-    useEffect(() => { fetchSettings(); }, [fetchSettings]);
+    useEffect(() => {
+        fetchSettings();
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('success') === 'gmail_connected') setToast({ message: 'Gmail connected!', type: 'success' });
+        if (params.get('error') === 'gmail_denied') setToast({ message: 'Gmail connection cancelled.', type: 'error' });
+        if (params.get('error') === 'gmail_failed') setToast({ message: 'Gmail connection failed.', type: 'error' });
+    }, [fetchSettings]);
 
     if (!auth || !isAdmin(auth.role)) {
         return <div className="page-loading" style={{ color: 'var(--danger)' }}>Access denied. Admin only.</div>;
@@ -98,6 +109,7 @@ function SettingsContent() {
         { key: 'modules', label: 'Modules' },
         { key: 'branding', label: 'Branding' },
         { key: 'pages', label: 'Page Content' },
+        { key: 'gmail', label: 'Gmail' },
     ];
 
     const brandColors = settings.brand_colors || { primary: '#6366f1', accent: '#8b5cf6', bg: '#0a0a0f' };
@@ -165,6 +177,18 @@ function SettingsContent() {
                             <input className="form-input" value={brandColors.bg} onChange={(e) => updateBranding('bg', e.target.value)} style={{ flex: 1 }} />
                         </div>
                     </div>
+                </div>
+            ) : tab === 'gmail' ? (
+                <div className="card">
+                    <h3 style={{ marginBottom: 8, fontSize: 16, fontWeight: 600 }}>Gmail Integration</h3>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 20 }}>Connect a Gmail account to send emails from the dashboard.</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', marginBottom: 16 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: gmailConnected ? 'var(--success, #22c55e)' : 'var(--danger, #ef4444)', flexShrink: 0 }} />
+                        <span style={{ fontSize: 14 }}>{gmailConnected ? 'Gmail is connected' : 'Gmail is not connected'}</span>
+                    </div>
+                    <a href="/api/auth/gmail" className="btn btn-primary" style={{ display: 'inline-block' }}>
+                        {gmailConnected ? 'Reconnect Gmail' : 'Connect Gmail'}
+                    </a>
                 </div>
             ) : (
                 <div className="card">
