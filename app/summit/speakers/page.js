@@ -36,12 +36,12 @@ function Speakers() {
     const [form, setForm] = useState(emptySpeaker);
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState(null);
-    // View detail + emails
     const [viewDetail, setViewDetail] = useState(null);
     const [viewTab, setViewTab] = useState('details');
     const [emails, setEmails] = useState([]);
     const [emailsLoading, setEmailsLoading] = useState(false);
     const [selectedEmail, setSelectedEmail] = useState(null);
+    const [hiddenEmailIds, setHiddenEmailIds] = useState(new Set());
 
     const fetchSpeakers = useCallback(async () => {
         const { data } = await supabase.from('speakers').select('*').order('full_name');
@@ -56,15 +56,26 @@ function Speakers() {
         setEmailsLoading(true);
         setEmails([]);
         setSelectedEmail(null);
-        fetch(`/api/gmail/messages?email=${encodeURIComponent(viewDetail.contact_email || '')}`)
-            .then((r) => r.json())
-            .then((data) => { setEmails(data.messages || []); setEmailsLoading(false); })
-            .catch(() => setEmailsLoading(false));
+        setHiddenEmailIds(new Set());
+
+        Promise.all([
+            fetch(`/api/gmail/messages?email=${encodeURIComponent(viewDetail.contact_email || '')}`).then((r) => r.json()),
+            supabase.from('hidden_speaker_emails').select('gmail_message_id').eq('speaker_id', viewDetail.id),
+        ]).then(([gmailData, { data: hidden }]) => {
+            setEmails(gmailData.messages || []);
+            setHiddenEmailIds(new Set((hidden || []).map((r) => r.gmail_message_id)));
+            setEmailsLoading(false);
+        }).catch(() => setEmailsLoading(false));
     }, [viewDetail, viewTab]);
+
+    const dismissEmail = async (gmailMessageId) => {
+        await supabase.from('hidden_speaker_emails').insert({ speaker_id: viewDetail.id, gmail_message_id: gmailMessageId });
+        setHiddenEmailIds((prev) => new Set([...prev, gmailMessageId]));
+    };
 
     const openAdd = () => { setEditing(null); setForm(emptySpeaker); setModalOpen(true); };
     const openEdit = (s) => { setEditing(s); setForm({ ...emptySpeaker, ...s, honorarium: s.honorarium ?? '' }); setModalOpen(true); };
-    const openView = (s) => { setViewDetail(s); setViewTab('details'); setEmails([]); setSelectedEmail(null); };
+    const openView = (s) => { setViewDetail(s); setViewTab('details'); setEmails([]); setSelectedEmail(null); setHiddenEmailIds(new Set()); };
 
     const handleSave = async () => {
         setSaving(true);
@@ -108,6 +119,8 @@ function Speakers() {
     });
 
     const updateField = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+
+    const visibleEmails = emails.filter((e) => !hiddenEmailIds.has(e.id));
 
     return (
         <>
@@ -254,18 +267,29 @@ function Speakers() {
                                         </>
                                     ) : !viewDetail.contact_email ? (
                                         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontSize: 14 }}>No email address on file for this speaker.</div>
-                                    ) : emails.length === 0 ? (
-                                        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontSize: 14 }}>No emails found for {viewDetail.contact_email}</div>
+                                    ) : visibleEmails.length === 0 ? (
+                                        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontSize: 14 }}>
+                                            {emails.length === 0 ? `No emails found for ${viewDetail.contact_email}` : 'All emails have been removed.'}
+                                        </div>
                                     ) : (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                            {emails.map((email) => (
-                                                <div key={email.id} onClick={() => setSelectedEmail(email)} style={{ padding: '12px 16px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', cursor: 'pointer', border: '1px solid var(--border)' }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                                        <span style={{ fontSize: 13, fontWeight: 600 }}>{email.subject}</span>
-                                                        <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', marginLeft: 8 }}>{new Date(email.date).toLocaleDateString()}</span>
+                                            {visibleEmails.map((email) => (
+                                                <div key={email.id} style={{ position: 'relative', padding: '12px 16px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                                                    <div onClick={() => setSelectedEmail(email)} style={{ cursor: 'pointer', paddingRight: 24 }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                            <span style={{ fontSize: 13, fontWeight: 600 }}>{email.subject}</span>
+                                                            <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', marginLeft: 8 }}>{new Date(email.date).toLocaleDateString()}</span>
+                                                        </div>
+                                                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{email.from}</div>
+                                                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email.snippet}</div>
                                                     </div>
-                                                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{email.from}</div>
-                                                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email.snippet}</div>
+                                                    <button
+                                                        title="Remove"
+                                                        onClick={() => dismissEmail(email.id)}
+                                                        style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, lineHeight: 1, padding: '2px 4px', borderRadius: 4 }}
+                                                    >
+                                                        ×
+                                                    </button>
                                                 </div>
                                             ))}
                                         </div>
