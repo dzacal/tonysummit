@@ -18,8 +18,6 @@ function SubmissionsList() {
     const [statusFilter, setStatusFilter] = useState('');
     const [detail, setDetail] = useState(null);
     const [modalTab, setModalTab] = useState('details');
-    const [emails, setEmails] = useState([]);
-    const [emailsLoading, setEmailsLoading] = useState(false);
     const [selectedEmail, setSelectedEmail] = useState(null);
     const [toast, setToast] = useState(null);
 
@@ -36,14 +34,8 @@ function SubmissionsList() {
     useEffect(() => { fetchData(); }, [fetchData]);
 
     useEffect(() => {
-        if (!detail || modalTab !== 'emails') return;
-        setEmailsLoading(true);
-        setEmails([]);
-        setSelectedEmail(null);
         fetch(`/api/gmail/messages?email=${encodeURIComponent(detail.submitter_email)}`)
             .then((r) => r.json())
-            .then((data) => { setEmails(data.messages || []); setEmailsLoading(false); })
-            .catch(() => setEmailsLoading(false));
     }, [detail, modalTab]);
 
     if (!auth || !isAdmin(auth.role)) return null;
@@ -52,7 +44,6 @@ function SubmissionsList() {
         setDetail(s);
         setModalTab('details');
         setSelectedEmail(null);
-        setEmails([]);
     };
 
     const updateStatus = async (id, newStatus) => {
