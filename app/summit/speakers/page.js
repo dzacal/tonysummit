@@ -1,304 +1,188 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import DashboardShell, { useAuth } from '@/components/DashboardShell';
-import Modal from '@/components/Modal';
-import Toast from '@/components/Toast';
+import { useAuth } from '@/components/DashboardShell';
 import { supabase } from '@/lib/supabase';
 import { isAdmin } from '@/lib/rbac';
-import { formatDate } from '@/lib/utils';
+import Toast from '@/components/Toast';
 
-const sessionTypes = ['Keynote', 'Panel Discussion', 'Workshop', 'Fireside Chat', 'Lightning Talk', 'Pre-recorded Video'];
-const responseStatuses = ['Not Contacted', 'Contacted', 'Interested', 'Confirmed', 'Declined'];
-
-const emptySpeaker = {
-    full_name: '', organization: '', title: '', topic: '', session_type: '',
-    contact_email: '', contact_phone: '', poc_name: '', poc_role: '', poc_email: '', poc_phone: '',
-    outreach_date: '', outreach_method: '', follow_up_date: '', response_status: 'Not Contacted',
-    confirmed: false, honorarium: '', session_date: '', session_time_utc: '', session_length_min: '',
-    bio_received: false, headshot_received: false, contract_sent: false, contract_signed: false,
-    av_requirements: '', travel_notes: '', notes: '',
-    bio: '', headshot_url: '', show_on_website: false,
-};
-
-export default function SpeakersPage() {
-    return <DashboardShell><Speakers /></DashboardShell>;
+export default function SpeakerSubmissionsPage() {
+    return <SubmissionsList />;
 }
 
-function Speakers() {
+function SubmissionsList() {
     const auth = useAuth();
-    const role = auth?.role || 'member';
-    const [speakers, setSpeakers] = useState([]);
+    const [submissions, setSubmissions] = useState([]);
+    const [fields, setFields] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
-    const [modalOpen, setModalOpen] = useState(false);
-    const [editing, setEditing] = useState(null);
-    const [form, setForm] = useState(emptySpeaker);
-    const [saving, setSaving] = useState(false);
+    const [detail, setDetail] = useState(null);
     const [toast, setToast] = useState(null);
 
-    const fetchSpeakers = useCallback(async () => {
-        const { data } = await supabase.from('speakers').select('*').order('full_name');
-        setSpeakers(data || []);
+    const fetchData = useCallback(async () => {
+        const [{ data: subs }, { data: version }] = await Promise.all([
+            supabase.from('speaker_submissions').select('*, speaker_form_versions(version, fields_snapshot)').order('created_at', { ascending: false }),
+            supabase.from('speaker_form_versions').select('fields_snapshot').eq('status', 'published').order('version', { ascending: false }).limit(1).single(),
+        ]);
+        setSubmissions(subs || []);
+        setFields(version?.fields_snapshot || []);
         setLoading(false);
     }, []);
 
-    useEffect(() => { fetchSpeakers(); }, [fetchSpeakers]);
+    useEffect(() => { fetchData(); }, [fetchData]);
 
-    const openAdd = () => { setEditing(null); setForm(emptySpeaker); setModalOpen(true); };
-    const openEdit = (s) => { setEditing(s); setForm({ ...emptySpeaker, ...s, honorarium: s.honorarium ?? '' }); setModalOpen(true); };
+    if (!auth || !isAdmin(auth.role)) return null;
 
-    const handleSave = async () => {
-        setSaving(true);
-        const payload = { ...form, honorarium: form.honorarium ? parseFloat(form.honorarium) : null, session_length_min: form.session_length_min ? parseInt(form.session_length_min) : null };
-        delete payload.id;
-        delete payload.created_at;
-
-        if (editing) {
-            const { error } = await supabase.from('speakers').update(payload).eq('id', editing.id);
-            if (error) setToast({ message: error.message, type: 'error' }); else setToast({ message: 'Speaker updated', type: 'success' });
-        } else {
-            const { error } = await supabase.from('speakers').insert(payload);
-            if (error) setToast({ message: error.message, type: 'error' }); else setToast({ message: 'Speaker added', type: 'success' });
-        }
-        setSaving(false);
-        setModalOpen(false);
-        fetchSpeakers();
+    const updateStatus = async (id, newStatus) => {
+        await supabase.from('speaker_submissions').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', id);
+        setSubmissions(submissions.map((s) => s.id === id ? { ...s, status: newStatus } : s));
+        if (detail?.id === id) setDetail({ ...detail, status: newStatus });
+        setToast({ message: `Status updated to ${newStatus}`, type: 'success' });
     };
 
-    const handleDelete = async (id) => {
-        if (!confirm('Delete this speaker?')) return;
-        await supabase.from('speakers').delete().eq('id', id);
-        setToast({ message: 'Speaker deleted', type: 'success' });
-        fetchSpeakers();
-    };
-
-    const badgeClass = (status) => {
-        switch (status) {
-            case 'Confirmed': return 'badge-success';
-            case 'Interested': case 'Contacted': return 'badge-info';
-            case 'Not Contacted': return 'badge-warning';
-            case 'Declined': return 'badge-danger';
-            default: return 'badge-neutral';
-        }
-    };
-
-    const filtered = speakers.filter((s) => {
-        const matchSearch = [s.full_name, s.organization, s.topic, s.contact_email].some((f) => f?.toLowerCase().includes(search.toLowerCase()));
-        const matchStatus = !statusFilter || s.response_status === statusFilter;
+    const filtered = submissions.filter((s) => {
+        const matchSearch = !search || (s.submitter_name || '').toLowerCase().includes(search.toLowerCase()) || (s.submitter_email || '').toLowerCase().includes(search.toLowerCase());
+        const matchStatus = !statusFilter || s.status === statusFilter;
         return matchSearch && matchStatus;
     });
 
-    const updateField = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+    const statusBadge = (status) => {
+        const map = { new: 'badge-info', reviewed: 'badge-warning', approved: 'badge-success', rejected: 'badge-danger' };
+        return <span className={`badge ${map[status] || 'badge-neutral'}`}>{status}</span>;
+    };
+
+    const exportCSV = () => {
+        const keys = fields.map((f) => f.field_key);
+        const header = ['Name', 'Email', 'Status', 'Submitted', ...fields.map((f) => f.label)];
+        const rows = filtered.map((s) => [
+            s.submitter_name || '', s.submitter_email || '', s.status,
+            new Date(s.created_at).toLocaleString(),
+            ...keys.map((k) => { const v = s.custom_data?.[k]; return typeof v === 'boolean' ? (v ? 'Yes' : 'No') : v || ''; }),
+        ]);
+        const csv = [header, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'speaker_submissions.csv'; a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const exportJSON = () => {
+        const data = filtered.map((s) => ({ name: s.submitter_name, email: s.submitter_email, status: s.status, submitted: s.created_at, ...s.custom_data }));
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'speaker_submissions.json'; a.click();
+        URL.revokeObjectURL(url);
+    };
 
     return (
         <>
             <div className="page-header">
-                <h1>Summit Speakers</h1>
-                <p>Manage speakers for the Generation Regeneration Online Summit.</p>
-                {isAdmin(role) && <div className="page-actions">
-                    <button className="btn btn-primary" onClick={openAdd}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M12 4v16m8-8H4" /></svg>
-                        Add Speaker
+                <h1>Speaker Submissions</h1>
+                <p>Review and manage speaker applications.</p>
+                <div className="page-actions">
+                    <button className="btn btn-secondary btn-sm" onClick={exportCSV}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                        Export CSV
                     </button>
-                </div>}
+                    <button className="btn btn-secondary btn-sm" onClick={exportJSON}>Export JSON</button>
+                </div>
             </div>
 
-            <div className="table-container">
-                <div className="table-toolbar">
-                    <div className="table-search">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></svg>
-                        <input placeholder="Search speakers..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            {loading ? (
+                <div className="page-loading"><span className="loading-spinner" /></div>
+            ) : (
+                <div className="table-container">
+                    <div className="table-toolbar">
+                        <div className="table-search">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></svg>
+                            <input placeholder="Search by name or email..." value={search} onChange={(e) => setSearch(e.target.value)} />
+                        </div>
+                        <div className="table-filters">
+                            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                                <option value="">All Status</option>
+                                <option value="new">New</option>
+                                <option value="reviewed">Reviewed</option>
+                                <option value="approved">Approved</option>
+                                <option value="rejected">Rejected</option>
+                            </select>
+                        </div>
                     </div>
-                    <div className="table-filters">
-                        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                            <option value="">All statuses</option>
-                            {responseStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                    </div>
-                </div>
 
-                {loading ? (
-                    <div className="page-loading"><span className="loading-spinner" /></div>
-                ) : filtered.length === 0 ? (
-                    <div className="table-empty">No speakers found.</div>
-                ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Organization</th>
-                                    <th>Topic</th>
-                                    <th>Session Type</th>
-                                    <th>Speaker Fee</th>
-                                    <th>Status</th>
-                                    <th>POC</th>
-                                    <th>Session Date</th>
-                                    <th></th>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Status</th>
+                                <th>Submitted</th>
+                                <th>Version</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filtered.length === 0 ? (
+                                <tr><td colSpan={6} className="table-empty">No submissions found</td></tr>
+                            ) : filtered.map((s) => (
+                                <tr key={s.id}>
+                                    <td className="name-cell" style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{s.submitter_name || '—'}</td>
+                                    <td style={{ fontSize: 13 }}>{s.submitter_email || '—'}</td>
+                                    <td>{statusBadge(s.status)}</td>
+                                    <td style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{new Date(s.created_at).toLocaleDateString()}</td>
+                                    <td style={{ fontSize: 13 }}>v{s.speaker_form_versions?.version || '?'}</td>
+                                    <td>
+                                        <div className="row-actions">
+                                            <button title="View" onClick={() => setDetail(s)}>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                            </button>
+                                        </div>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {filtered.map((s) => (
-                                    <tr key={s.id}>
-                                        <td><span className="name-cell">{s.full_name}</span></td>
-                                        <td>{s.organization || '—'}</td>
-                                        <td style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.topic || '—'}</td>
-                                        <td>{s.session_type || '—'}</td>
-                                        <td>{s.honorarium ? `$${Number(s.honorarium).toLocaleString()}` : '—'}</td>
-                                        <td><span className={`badge ${badgeClass(s.response_status)}`}>{s.response_status}</span></td>
-                                        <td>{s.poc_name || s.agent_name || '—'}</td>
-                                        <td>{formatDate(s.session_date)}</td>
-                                        {isAdmin(role) && <td>
-                                            <div className="row-actions">
-                                                <button title="Edit" onClick={() => openEdit(s)}>
-                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                                                </button>
-                                                <button className="delete" title="Delete" onClick={() => handleDelete(s.id)}>
-                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>
-                                                </button>
-                                            </div>
-                                        </td>}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
+                            ))}
+                        </tbody>
+                    </table>
 
-            <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Edit Speaker' : 'Add Speaker'} onSubmit={handleSave} loading={saving}>
-                {/* Speaker Info */}
-                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Speaker Information</p>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label className="form-label">Full Name *</label>
-                        <input className="form-input" value={form.full_name} onChange={(e) => updateField('full_name', e.target.value)} required />
-                    </div>
-                    <div className="form-group">
-                        <label className="form-label">Organization</label>
-                        <input className="form-input" value={form.organization} onChange={(e) => updateField('organization', e.target.value)} />
+                    <div className="table-pagination">
+                        <span>{filtered.length} submission{filtered.length !== 1 ? 's' : ''}</span>
                     </div>
                 </div>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label className="form-label">Title</label>
-                        <input className="form-input" value={form.title} onChange={(e) => updateField('title', e.target.value)} />
-                    </div>
-                    <div className="form-group">
-                        <label className="form-label">Topic</label>
-                        <input className="form-input" value={form.topic} onChange={(e) => updateField('topic', e.target.value)} />
-                    </div>
-                </div>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label className="form-label">Session Type</label>
-                        <select className="form-select" value={form.session_type} onChange={(e) => updateField('session_type', e.target.value)}>
-                            <option value="">Select...</option>
-                            {sessionTypes.map((t) => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                    </div>
-                    <div className="form-group">
-                        <label className="form-label">Speaker Fee ($)</label>
-                        <input className="form-input" type="number" value={form.honorarium} onChange={(e) => updateField('honorarium', e.target.value)} placeholder="0.00" />
-                    </div>
-                </div>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label className="form-label">Speaker Email</label>
-                        <input className="form-input" type="email" value={form.contact_email} onChange={(e) => updateField('contact_email', e.target.value)} />
-                    </div>
-                    <div className="form-group">
-                        <label className="form-label">Speaker Phone</label>
-                        <input className="form-input" value={form.contact_phone} onChange={(e) => updateField('contact_phone', e.target.value)} />
-                    </div>
-                </div>
+            )}
 
-                {/* Point of Contact */}
-                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>Point of Contact</p>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label className="form-label">POC Name</label>
-                        <input className="form-input" value={form.poc_name} onChange={(e) => updateField('poc_name', e.target.value)} />
-                    </div>
-                    <div className="form-group">
-                        <label className="form-label">POC Role / Title</label>
-                        <input className="form-input" value={form.poc_role} onChange={(e) => updateField('poc_role', e.target.value)} />
-                    </div>
-                </div>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label className="form-label">POC Email</label>
-                        <input className="form-input" type="email" value={form.poc_email} onChange={(e) => updateField('poc_email', e.target.value)} />
-                    </div>
-                    <div className="form-group">
-                        <label className="form-label">POC Phone</label>
-                        <input className="form-input" value={form.poc_phone} onChange={(e) => updateField('poc_phone', e.target.value)} />
-                    </div>
-                </div>
-
-                {/* Outreach & Scheduling */}
-                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>Outreach & Scheduling</p>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label className="form-label">Response Status</label>
-                        <select className="form-select" value={form.response_status} onChange={(e) => updateField('response_status', e.target.value)}>
-                            {responseStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                    </div>
-                    <div className="form-group">
-                        <label className="form-label">Outreach Method</label>
-                        <input className="form-input" value={form.outreach_method} onChange={(e) => updateField('outreach_method', e.target.value)} placeholder="e.g. Email, LinkedIn" />
+            {detail && (
+                <div className="modal-overlay" onClick={() => setDetail(null)}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 700 }}>
+                        <div className="modal-header">
+                            <h2>{detail.submitter_name || 'Submission Details'}</h2>
+                            <button className="btn btn-ghost btn-icon" onClick={() => setDetail(null)}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+                                <span style={{ fontWeight: 600 }}>{detail.submitter_name || 'Anonymous'}</span>
+                                <span style={{ color: 'var(--text-muted)' }}>•</span>
+                                <span style={{ color: 'var(--text-secondary)' }}>{detail.submitter_email || '—'}</span>
+                                <span style={{ marginLeft: 'auto' }}>{statusBadge(detail.status)}</span>
+                            </div>
+                            {(detail.speaker_form_versions?.fields_snapshot || fields).map((field) => {
+                                const val = detail.custom_data?.[field.field_key];
+                                return (
+                                    <div key={field.field_key} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+                                        <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>{field.label}</div>
+                                        <div style={{ fontSize: 14, color: 'var(--text-primary)' }}>{typeof val === 'boolean' ? (val ? 'Yes' : 'No') : val || '—'}</div>
+                                    </div>
+                                );
+                            })}
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+                                Submitted: {new Date(detail.created_at).toLocaleString()} • Version: v{detail.speaker_form_versions?.version || '?'}
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <span style={{ fontSize: 13, color: 'var(--text-muted)', marginRight: 'auto' }}>Change status:</span>
+                            {['new', 'reviewed', 'approved', 'rejected'].map((st) => (
+                                <button key={st} className={`btn btn-sm ${detail.status === st ? 'btn-primary' : 'btn-secondary'}`} onClick={() => updateStatus(detail.id, st)} style={{ textTransform: 'capitalize' }}>{st}</button>
+                            ))}
+                        </div>
                     </div>
                 </div>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label className="form-label">Session Date</label>
-                        <input className="form-input" type="date" value={form.session_date || ''} onChange={(e) => updateField('session_date', e.target.value)} />
-                    </div>
-                    <div className="form-group">
-                        <label className="form-label">Session Length (min)</label>
-                        <input className="form-input" type="number" value={form.session_length_min || ''} onChange={(e) => updateField('session_length_min', e.target.value)} />
-                    </div>
-                </div>
-
-                {/* Checklist */}
-                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>Checklist</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px' }}>
-                    {[
-                        ['confirmed', 'Confirmed'],
-                        ['contract_sent', 'Contract Sent'],
-                        ['contract_signed', 'Contract Signed'],
-                        ['bio_received', 'Bio Received'],
-                        ['headshot_received', 'Headshot Received'],
-                    ].map(([key, label]) => (
-                        <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                            <input type="checkbox" checked={form[key] || false} onChange={(e) => updateField(key, e.target.checked)} />
-                            {label}
-                        </label>
-                    ))}
-                </div>
-
-                <div className="form-group" style={{ marginTop: 16 }}>
-                    <label className="form-label">Notes</label>
-                    <textarea className="form-textarea" value={form.notes || ''} onChange={(e) => updateField('notes', e.target.value)} />
-                </div>
-
-                {/* Public Website Display */}
-                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12, marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>Public Website Display</p>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: 'var(--text-secondary)', cursor: 'pointer', marginBottom: 12 }}>
-                    <input type="checkbox" checked={form.show_on_website || false} onChange={(e) => updateField('show_on_website', e.target.checked)} />
-                    Show on public speakers page
-                </label>
-                <div className="form-group">
-                    <label className="form-label">Speaker Bio (public)</label>
-                    <textarea className="form-textarea" value={form.bio || ''} onChange={(e) => updateField('bio', e.target.value)} placeholder="Bio displayed on the website..." rows={3} />
-                </div>
-                <div className="form-group">
-                    <label className="form-label">Headshot URL</label>
-                    <input className="form-input" value={form.headshot_url || ''} onChange={(e) => updateField('headshot_url', e.target.value)} placeholder="https://example.com/photo.jpg" />
-                </div>
-            </Modal>
+            )}
 
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         </>
