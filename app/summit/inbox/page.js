@@ -42,21 +42,27 @@ export default function SmartInboxPage() {
     const [savedIds, setSavedIds] = useState({});
     const [activeTab, setActiveTab] = useState('speaker');
 
-    async function scan() {
-        setLoading(true);
-        setError(null);
+   async function scan() {
+    setLoading(true);
+    setError(null);
+    try {
+        const res = await fetch('/api/gmail/smart-scan');
+        const text = await res.text();
+        let data;
         try {
-            const res = await fetch('/api/gmail/smart-scan');
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-            setEmails(data.results || []);
-            setScanned(true);
-        } catch (e) {
-            setError(e.message);
-        } finally {
-            setLoading(false);
+            data = JSON.parse(text);
+        } catch {
+            throw new Error(text.slice(0, 300));
         }
+        if (data.error) throw new Error(data.error);
+        setEmails(data.results || []);
+        setScanned(true);
+    } catch (e) {
+        setError(e.message);
+    } finally {
+        setLoading(false);
     }
+}
 
     function openModal(type, email) {
         setForm(type === 'speaker' ? speakerDefaults(email) : podcastDefaults(email));
