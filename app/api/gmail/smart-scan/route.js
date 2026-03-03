@@ -56,15 +56,14 @@ function extractName(str) {
 }
 
 function categorize(subject, body) {
-    const text = `${subject} ${body}`.toLowerCase();
-    const foundPodcast = PODCAST_KEYWORDS.some(k => text.includes(k));
-    const foundSpeaker = SPEAKER_KEYWORDS.some(k => text.includes(k));
-    const matchedKeywords = ALL_KEYWORDS.filter(k => text.includes(k));
+  const text = `${subject} ${body}`.toLowerCase();
+  const foundPodcast = PODCAST_KEYWORDS.some(k => text.includes(k));
+  const foundSpeaker = SPEAKER_KEYWORDS.some(k => text.includes(k));
+  const matchedKeywords = ALL_KEYWORDS.filter(k => text.includes(k));
 
-    if (foundPodcast && !foundSpeaker) return { category: 'podcast', keywords: matchedKeywords };
-    if (foundSpeaker) return { category: 'speaker', keywords: matchedKeywords };
-    if (foundPodcast) return { category: 'podcast', keywords: matchedKeywords };
-    return null;
+  if (foundPodcast) return { category: 'podcast', keywords: matchedKeywords };
+  if (foundSpeaker) return { category: 'speaker', keywords: matchedKeywords };
+  return null;
 }
 
 export async function GET() {
