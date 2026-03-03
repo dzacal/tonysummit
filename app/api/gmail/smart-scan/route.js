@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const SPEAKER_KEYWORDS = ['generation regeneration', 'online summit', 'interview', 'panel', 'substack'];
-const PODCAST_KEYWORDS = ['podcast'];
+const PODCAST_KEYWORDS = ['podcast', 'episode', 'show guest', 'be a guest', 'guest appearance', 'recording session'];
 const ALL_KEYWORDS = [...SPEAKER_KEYWORDS, ...PODCAST_KEYWORDS];
 
 async function getValidToken(supabase) {
