@@ -42,6 +42,8 @@ function Speakers() {
     const [emailsLoading, setEmailsLoading] = useState(false);
     const [selectedEmail, setSelectedEmail] = useState(null);
     const [hiddenEmailIds, setHiddenEmailIds] = useState(new Set());
+    const [summary, setSummary] = useState(null);
+    const [summaryLoading, setSummaryLoading] = useState(false);
 
     const fetchSpeakers = useCallback(async () => {
         const { data } = await supabase.from('speakers').select('*').order('full_name');
@@ -57,6 +59,7 @@ function Speakers() {
         setEmails([]);
         setSelectedEmail(null);
         setHiddenEmailIds(new Set());
+        setSummary(null);
 
         Promise.all([
             fetch(`/api/gmail/messages?email=${encodeURIComponent(viewDetail.contact_email || '')}`).then((r) => r.json()),
@@ -71,11 +74,29 @@ function Speakers() {
     const dismissEmail = async (gmailMessageId) => {
         await supabase.from('hidden_speaker_emails').insert({ speaker_id: viewDetail.id, gmail_message_id: gmailMessageId });
         setHiddenEmailIds((prev) => new Set([...prev, gmailMessageId]));
+        setSummary(null);
+    };
+
+    const generateSummary = async () => {
+        setSummaryLoading(true);
+        setSummary(null);
+        try {
+            const res = await fetch('/api/ai/summarize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ emails: visibleEmails, speakerName: viewDetail.full_name }),
+            });
+            const data = await res.json();
+            setSummary(data.summary);
+        } catch {
+            setSummary('Failed to generate summary.');
+        }
+        setSummaryLoading(false);
     };
 
     const openAdd = () => { setEditing(null); setForm(emptySpeaker); setModalOpen(true); };
     const openEdit = (s) => { setEditing(s); setForm({ ...emptySpeaker, ...s, honorarium: s.honorarium ?? '' }); setModalOpen(true); };
-    const openView = (s) => { setViewDetail(s); setViewTab('details'); setEmails([]); setSelectedEmail(null); setHiddenEmailIds(new Set()); };
+    const openView = (s) => { setViewDetail(s); setViewTab('details'); setEmails([]); setSelectedEmail(null); setHiddenEmailIds(new Set()); setSummary(null); };
 
     const handleSave = async () => {
         setSaving(true);
@@ -119,7 +140,6 @@ function Speakers() {
     });
 
     const updateField = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
-
     const visibleEmails = emails.filter((e) => !hiddenEmailIds.has(e.id));
 
     return (
@@ -272,27 +292,40 @@ function Speakers() {
                                             {emails.length === 0 ? `No emails found for ${viewDetail.contact_email}` : 'All emails have been removed.'}
                                         </div>
                                     ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                            {visibleEmails.map((email) => (
-                                                <div key={email.id} style={{ position: 'relative', padding: '12px 16px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-                                                    <div onClick={() => setSelectedEmail(email)} style={{ cursor: 'pointer', paddingRight: 24 }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                                            <span style={{ fontSize: 13, fontWeight: 600 }}>{email.subject}</span>
-                                                            <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', marginLeft: 8 }}>{new Date(email.date).toLocaleDateString()}</span>
-                                                        </div>
-                                                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{email.from}</div>
-                                                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email.snippet}</div>
-                                                    </div>
-                                                    <button
-                                                        title="Remove"
-                                                        onClick={() => dismissEmail(email.id)}
-                                                        style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, lineHeight: 1, padding: '2px 4px', borderRadius: 4 }}
-                                                    >
-                                                        ×
-                                                    </button>
+                                        <>
+                                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                                                <button className="btn btn-secondary btn-sm" onClick={generateSummary} disabled={summaryLoading}>
+                                                    {summaryLoading ? 'Summarizing…' : '✦ Generate Summary'}
+                                                </button>
+                                            </div>
+
+                                            {summary && (
+                                                <div style={{ marginBottom: 16, padding: 16, background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', fontSize: 14, lineHeight: 1.7, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
+                                                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>AI Summary</div>
+                                                    {summary}
                                                 </div>
-                                            ))}
-                                        </div>
+                                            )}
+
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                {visibleEmails.map((email) => (
+                                                    <div key={email.id} style={{ position: 'relative', padding: '12px 16px', background: 'var(--bg-input)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                                                        <div onClick={() => setSelectedEmail(email)} style={{ cursor: 'pointer', paddingRight: 24 }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                                <span style={{ fontSize: 13, fontWeight: 600 }}>{email.subject}</span>
+                                                                <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', marginLeft: 8 }}>{new Date(email.date).toLocaleDateString()}</span>
+                                                            </div>
+                                                            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{email.from}</div>
+                                                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email.snippet}</div>
+                                                        </div>
+                                                        <button
+                                                            title="Remove"
+                                                            onClick={() => dismissEmail(email.id)}
+                                                            style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, lineHeight: 1, padding: '2px 4px', borderRadius: 4 }}
+                                                        >×</button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </>
                                     )}
                                 </>
                             )}
