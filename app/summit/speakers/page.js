@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import DashboardShell, { useAuth } from '@/components/DashboardShell';
 import Modal from '@/components/Modal';
 import Toast from '@/components/Toast';
@@ -44,6 +45,18 @@ function Speakers() {
     const [hiddenEmailIds, setHiddenEmailIds] = useState(new Set());
     const [summary, setSummary] = useState(null);
     const [summaryLoading, setSummaryLoading] = useState(false);
+    const searchParams = useSearchParams();
+
+    useEffect(() => {
+        const name = searchParams.get('prefill_name');
+        const email = searchParams.get('prefill_email');
+        if (name || email) {
+            setForm({ ...emptySpeaker, full_name: name || '', contact_email: email || '' });
+            setEditing(null);
+            setModalOpen(true);
+        }
+    }, [searchParams]);
+
 
     const fetchSpeakers = useCallback(async () => {
         const { data } = await supabase.from('speakers').select('*').order('full_name');
