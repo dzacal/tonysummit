@@ -40,6 +40,7 @@ export default function SmartInboxPage() {
     const [form, setForm] = useState({});
     const [saving, setSaving] = useState(false);
     const [savedIds, setSavedIds] = useState({});
+    const [activeTab, setActiveTab] = useState('speaker');
 
     async function scan() {
         setLoading(true);
@@ -79,6 +80,12 @@ export default function SmartInboxPage() {
 
     const speakerEmails = emails.filter(e => e.category === 'speaker');
     const podcastEmails = emails.filter(e => e.category === 'podcast');
+    const tabEmails = activeTab === 'speaker' ? speakerEmails : podcastEmails;
+
+    const tabs = [
+        { key: 'speaker', label: 'Summit Speakers', count: speakerEmails.length },
+        { key: 'podcast', label: 'Podcast', count: podcastEmails.length },
+    ];
 
     return (
         <div className="page-container">
@@ -96,25 +103,57 @@ export default function SmartInboxPage() {
             {loading && <div className="loading-state">Scanning your inbox…</div>}
 
             {scanned && !loading && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                    <EmailSection
-                        title="Speaker Leads"
-                        count={speakerEmails.length}
-                        emails={speakerEmails}
-                        savedIds={savedIds}
-                        onAdd={(email) => openModal('speaker', email)}
-                        addLabel="Add as Speaker"
-                    />
-                    <EmailSection
-                        title="Podcast Leads"
-                        count={podcastEmails.length}
-                        emails={podcastEmails}
-                        savedIds={savedIds}
-                        onAdd={(email) => openModal('podcast', email)}
-                        addLabel="Add to Podcast"
-                    />
-                    {speakerEmails.length === 0 && podcastEmails.length === 0 && (
+                <div>
+                    {/* Tabs */}
+                    <div style={{
+                        display: 'flex',
+                        gap: '0',
+                        borderBottom: '2px solid var(--border)',
+                        marginBottom: '1.5rem',
+                    }}>
+                        {tabs.map(tab => (
+                            <button
+                                key={tab.key}
+                                onClick={() => setActiveTab(tab.key)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    padding: '0.75rem 1.25rem',
+                                    background: 'none',
+                                    border: 'none',
+                                    borderBottom: activeTab === tab.key
+                                        ? '2px solid var(--accent)'
+                                        : '2px solid transparent',
+                                    marginBottom: '-2px',
+                                    cursor: 'pointer',
+                                    fontWeight: activeTab === tab.key ? 600 : 400,
+                                    color: activeTab === tab.key ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                    fontSize: '0.9rem',
+                                    transition: 'color 0.15s',
+                                }}
+                            >
+                                {tab.label}
+                                <span className="badge">{tab.count}</span>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Email list */}
+                    {tabEmails.length === 0 ? (
                         <div className="empty-state">No matching emails found.</div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            {tabEmails.map(email => (
+                                <EmailCard
+                                    key={email.id}
+                                    email={email}
+                                    saved={savedIds[email.id]}
+                                    onAdd={(e) => openModal(activeTab, e)}
+                                    addLabel={activeTab === 'speaker' ? 'Add as Speaker' : 'Add to Podcast'}
+                                />
+                            ))}
+                        </div>
                     )}
                 </div>
             )}
@@ -143,32 +182,6 @@ export default function SmartInboxPage() {
                             </button>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-function EmailSection({ title, count, emails, savedIds, onAdd, addLabel }) {
-    return (
-        <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                <h2 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>{title}</h2>
-                <span className="badge">{count}</span>
-            </div>
-            {emails.length === 0 ? (
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>None found.</p>
-            ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {emails.map(email => (
-                        <EmailCard
-                            key={email.id}
-                            email={email}
-                            saved={savedIds[email.id]}
-                            onAdd={onAdd}
-                            addLabel={addLabel}
-                        />
-                    ))}
                 </div>
             )}
         </div>
