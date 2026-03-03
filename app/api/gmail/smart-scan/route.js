@@ -32,18 +32,6 @@ async function getValidToken(supabase) {
     return tokens.access_token;
 }
 
-function decodeBody(part) {
-    if (!part) return '';
-    if (part.body?.data) return Buffer.from(part.body.data, 'base64').toString('utf-8');
-    if (part.parts) {
-        for (const p of part.parts) {
-            const text = decodeBody(p);
-            if (text) return text;
-        }
-    }
-    return '';
-}
-
 function extractEmail(str) {
     const match = str?.match(/<([^>]+)>/) || str?.match(/([^\s,<>]+@[^\s,<>]+)/);
     return match ? match[1].toLowerCase().trim() : (str || '').toLowerCase().trim();
@@ -55,8 +43,8 @@ function extractName(str) {
     return nameMatch ? nameMatch[1].trim() : str.split('@')[0];
 }
 
-function categorize(subject, body) {
-    const text = `${subject} ${body}`.toLowerCase();
+function categorize(subject, snippet) {
+    const text = `${subject} ${snippet}`.toLowerCase();
     const foundPodcast = PODCAST_KEYWORDS.some(k => text.includes(k));
     const foundSpeaker = SPEAKER_KEYWORDS.some(k => text.includes(k));
     const matchedKeywords = ALL_KEYWORDS.filter(k => text.includes(k));
@@ -66,7 +54,7 @@ function categorize(subject, body) {
     return null;
 }
 
-async function fetchAllMessageIds(accessToken, query) {
+async function fetchAllMessageIds(accessToken, query, maxTotal = 300) {
     const ids = [];
     let pageToken = null;
 
@@ -82,9 +70,9 @@ async function fetchAllMessageIds(accessToken, query) {
         const data = await res.json();
         if (data.messages) ids.push(...data.messages);
         pageToken = data.nextPageToken || null;
-    } while (pageToken);
+    } while (pageToken && ids.length < maxTotal);
 
-    return ids;
+    return ids.slice(0, maxTotal);
 }
 
 export async function GET() {
@@ -108,42 +96,44 @@ export async function GET() {
             if (s.poc_email) speakerEmailMap.set(s.poc_email.toLowerCase(), s);
         });
 
+        // Fetch all messages in parallel batches of 20
         const results = [];
+        const BATCH_SIZE = 20;
 
-        for (const { id } of messageIds) {
-            const msgRes = await fetch(
-                `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`,
-                { headers: { Authorization: `Bearer ${accessToken}` } }
+        for (let i = 0; i < messageIds.length; i += BATCH_SIZE) {
+            const batch = messageIds.slice(i, i + BATCH_SIZE);
+            const batchResults = await Promise.all(
+                batch.map(async ({ id }) => {
+                    const url = new URL(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}`);
+                    url.searchParams.set('format', 'metadata');
+                    url.searchParams.set('metadataHeaders', 'Subject');
+                    url.searchParams.set('metadataHeaders', 'From');
+                    url.searchParams.set('metadataHeaders', 'Date');
+
+                    const msgRes = await fetch(url.toString(), {
+                        headers: { Authorization: `Bearer ${accessToken}` },
+                    });
+                    const msg = await msgRes.json();
+
+                    const headers = msg.payload?.headers || [];
+                    const get = (name) => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
+
+                    const subject = get('Subject') || '(no subject)';
+                    const from = get('From');
+                    const date = get('Date');
+                    const snippet = msg.snippet || '';
+
+                    const cat = categorize(subject, snippet);
+                    if (!cat) return null;
+
+                    const senderEmail = extractEmail(from);
+                    const senderName = extractName(from);
+                    const matchedSpeaker = speakerEmailMap.get(senderEmail) || null;
+
+                    return { id, subject, from, senderEmail, senderName, date, snippet, category: cat.category, keywords: cat.keywords, matchedSpeaker };
+                })
             );
-            const msg = await msgRes.json();
-            const headers = msg.payload?.headers || [];
-            const get = (name) => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
-
-            const subject = get('Subject') || '(no subject)';
-            const from = get('From');
-            const date = get('Date');
-            const body = decodeBody(msg.payload);
-            const snippet = msg.snippet || '';
-
-            const cat = categorize(subject, body || snippet);
-            if (!cat) continue;
-
-            const senderEmail = extractEmail(from);
-            const senderName = extractName(from);
-            const matchedSpeaker = speakerEmailMap.get(senderEmail) || null;
-
-            results.push({
-                id,
-                subject,
-                from,
-                senderEmail,
-                senderName,
-                date,
-                snippet,
-                category: cat.category,
-                keywords: cat.keywords,
-                matchedSpeaker,
-            });
+            results.push(...batchResults.filter(Boolean));
         }
 
         return Response.json({ results, total: messageIds.length });
