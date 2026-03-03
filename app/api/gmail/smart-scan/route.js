@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SPEAKER_KEYWORDS = ['generation regeneration', 'online summit', 'interview', 'panel', 'substack'];
-const PODCAST_KEYWORDS = ['podcast', 'episode', 'show guest', 'be a guest', 'guest appearance', 'recording session'];
+const SPEAKER_KEYWORDS = ['generation regeneration', 'online summit', 'summit speaker', 'summit interview', 'summit panel', 'substack'];
+const PODCAST_KEYWORDS = ['podcast'];
 const ALL_KEYWORDS = [...SPEAKER_KEYWORDS, ...PODCAST_KEYWORDS];
 
 async function getValidToken(supabase) {
@@ -56,14 +56,35 @@ function extractName(str) {
 }
 
 function categorize(subject, body) {
-  const text = `${subject} ${body}`.toLowerCase();
-  const foundPodcast = PODCAST_KEYWORDS.some(k => text.includes(k));
-  const foundSpeaker = SPEAKER_KEYWORDS.some(k => text.includes(k));
-  const matchedKeywords = ALL_KEYWORDS.filter(k => text.includes(k));
+    const text = `${subject} ${body}`.toLowerCase();
+    const foundPodcast = PODCAST_KEYWORDS.some(k => text.includes(k));
+    const foundSpeaker = SPEAKER_KEYWORDS.some(k => text.includes(k));
+    const matchedKeywords = ALL_KEYWORDS.filter(k => text.includes(k));
 
-  if (foundPodcast) return { category: 'podcast', keywords: matchedKeywords };
-  if (foundSpeaker) return { category: 'speaker', keywords: matchedKeywords };
-  return null;
+    if (foundPodcast) return { category: 'podcast', keywords: matchedKeywords };
+    if (foundSpeaker) return { category: 'speaker', keywords: matchedKeywords };
+    return null;
+}
+
+async function fetchAllMessageIds(accessToken, query) {
+    const ids = [];
+    let pageToken = null;
+
+    do {
+        const url = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages');
+        url.searchParams.set('q', query);
+        url.searchParams.set('maxResults', '500');
+        if (pageToken) url.searchParams.set('pageToken', pageToken);
+
+        const res = await fetch(url.toString(), {
+            headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        const data = await res.json();
+        if (data.messages) ids.push(...data.messages);
+        pageToken = data.nextPageToken || null;
+    } while (pageToken);
+
+    return ids;
 }
 
 export async function GET() {
@@ -75,17 +96,11 @@ export async function GET() {
     try {
         const accessToken = await getValidToken(supabase);
 
-        // Build Gmail search query
-        const query = ALL_KEYWORDS.map(k => `"${k}"`).join(' OR ');
+        const keywordQuery = ALL_KEYWORDS.map(k => `"${k}"`).join(' OR ');
+        const query = `(${keywordQuery}) after:2025/01/01`;
 
-        const searchRes = await fetch(
-            `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query)}&maxResults=50`,
-            { headers: { Authorization: `Bearer ${accessToken}` } }
-        );
-        const searchData = await searchRes.json();
-        const messageIds = searchData.messages || [];
+        const messageIds = await fetchAllMessageIds(accessToken, query);
 
-        // Load existing speakers for matching
         const { data: speakers } = await supabase.from('speakers').select('id, full_name, contact_email, poc_email');
         const speakerEmailMap = new Map();
         (speakers || []).forEach(s => {
@@ -95,7 +110,7 @@ export async function GET() {
 
         const results = [];
 
-        for (const { id } of messageIds.slice(0, 30)) {
+        for (const { id } of messageIds) {
             const msgRes = await fetch(
                 `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`,
                 { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -131,7 +146,7 @@ export async function GET() {
             });
         }
 
-        return Response.json({ results });
+        return Response.json({ results, total: messageIds.length });
     } catch (err) {
         return Response.json({ error: err.message }, { status: 500 });
     }
